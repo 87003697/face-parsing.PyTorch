@@ -21,6 +21,8 @@ import cv2
 from functools import reduce
 from torch.multiprocessing import set_start_method
 
+import time
+
 def vis_parsing_maps(im, parsing_anno, info, stride, save_im=False, save_path='vis_results/parsing_map_on_im.jpg'):
     # Colors for all 20 parts
 
@@ -73,7 +75,21 @@ def vis_parsing_maps(im, parsing_anno, info, stride, save_im=False, save_path='v
 
 n_classes = 19
 net = BiSeNet(n_classes=n_classes)
-net.cuda()
+while True:
+    try:
+
+        # main command
+        net.cuda()
+
+        break
+    except RuntimeError as e:
+        if str(e).startswith('CUDA'):
+            print("Warning: out of memory, sleep for 10s")
+            time.sleep(10)
+        else:
+            print(e)
+            break
+        
 save_pth = osp.join('res/cp', '79999_iter.pth')
 net.load_state_dict(torch.load(save_pth))
 net.eval()
@@ -91,9 +107,24 @@ def job(image_path):
         #image, info = detector.get(image_path)
         img = to_tensor(image)
         img = torch.unsqueeze(img, 0)
-        img = img.cuda()
-        out = net(img)[0]
-        parsing = out.squeeze(0).cpu().numpy().argmax(0)
+        while True:
+            try:
+
+                # main command
+                img = img.cuda()
+                out = net(img)[0]
+                parsing = out.squeeze(0).cpu().numpy().argmax(0)
+
+                break
+            except RuntimeError as e:
+                if str(e).startswith('CUDA'):
+                    print("Warning: out of memory, sleep for 10s")
+                    time.sleep(10)
+                else:
+                    print(e)
+                    break
+
+            
         vis_parsing_maps(image, parsing, info, stride=1, save_im=True, save_path=image_path)
 
 
